@@ -47,13 +47,13 @@ class IP:
             if self.verificaSaida(dest_addr, enderecoCIDR, qtdBitsFixos):
                 return next_hop
 
-        print('Utilizando rota padrao')
+        #print('Utilizando rota padrao')
         return self.obtemRotaPadrao()
 
     def verificaSaida(self, enderecoIP, enderecoCIDR, qtdBitsFixos):
 
 
-        print(' Verificando saida: enderecoIP: '+str(enderecoIP)+' enderecoCIDR: '+str(enderecoCIDR)+' qtdBitsFixos: '+str(qtdBitsFixos))
+        #print(' Verificando saida: enderecoIP: '+str(enderecoIP)+' enderecoCIDR: '+str(enderecoCIDR)+' qtdBitsFixos: '+str(qtdBitsFixos))
 
         posicaoIP=0
 
@@ -97,7 +97,7 @@ class IP:
                 
                 return self.tabela[i][2]
 
-        print('Rota padrao nao localizada')
+        #print('Rota padrao nao localizada')
 
     def definir_endereco_host(self, meu_endereco):
         """
@@ -134,7 +134,6 @@ class IP:
 
             self.tabela.append([bitsFixos,tabela[i][0].split('/')[0],tabela[i][1]])
 
-        print(self.tabela)
         pass
 
     def registrar_recebedor(self, callback):
@@ -144,6 +143,9 @@ class IP:
         self.callback = callback
 
     def enviar(self, segmento, dest_addr):
+
+        #print('funcao: enviar')
+        
         """
         Envia segmento para dest_addr, onde dest_addr é um endereço IPv4
         (string no formato x.y.z.w).
@@ -151,4 +153,22 @@ class IP:
         next_hop = self._next_hop(dest_addr)
         # TODO: Assumindo que a camada superior é o protocolo TCP, monte o
         # datagrama com o cabeçalho IP, contendo como payload o segmento.
+
+
+        datagrama = b'E\x00\x00\x14\x00\x00\x00\x00@\x06\x00\x00\x01\x02\x03\x04'
+
+        vihl, dscpecn, total_len, identification, flagsfrag, ttl, proto,checksum, src_addr = struct.unpack('!BBHHHBBHI', datagrama)
+
+        ihl = vihl & 0xf                #para o IPV4 deve sempre ser 4
+
+        total_len=len(segmento)+20
+
+        datagrama = struct.pack('!BBHHHBBH', vihl, dscpecn, total_len, identification, flagsfrag, ttl, proto, 0) + str2addr(self.meu_endereco) + str2addr(dest_addr)
+
+        checksum=calc_checksum(datagrama)
+
+        datagrama = struct.pack('!BBHHHBBH', vihl, dscpecn, total_len ,identification, flagsfrag, ttl, proto, checksum) + str2addr(self.meu_endereco) + str2addr(dest_addr) + segmento
+
+        #datagrama = struct.pack('!BBHHHBBHIIs', vihl, dscpecn, len(segmento), identification, flagsfrag, ttl, proto, checksum, str2addr(self.meu_endereco), str2addr(dest_addr), segmento)
+
         self.enlace.enviar(datagrama, next_hop)
