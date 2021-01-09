@@ -36,19 +36,29 @@ class IP:
         tamanhoTabela=len(self.tabela)
         destinoLocalizado=False
 
+        maiorMatch=0
+        next_hop=None
+
         for i in range(0,tamanhoTabela):
 
             enderecoCIDR=self.tabela[i][1]
     
             qtdBitsFixos=self.tabela[i][0]
 
-            next_hop=self.tabela[i][2]
+            v_next_hop=self.tabela[i][2]
 
-            if self.verificaSaida(dest_addr, enderecoCIDR, qtdBitsFixos):
-                return next_hop
+            if self.verificaSaida(dest_addr, enderecoCIDR, qtdBitsFixos) and qtdBitsFixos!=0 and qtdBitsFixos>maiorMatch:
+                
+                maiorMatch=qtdBitsFixos
 
-        #print('Utilizando rota padrao')
-        return self.obtemRotaPadrao()
+                next_hop = v_next_hop
+
+        if maiorMatch!=0:
+            return next_hop
+
+        else:
+            #print('Utilizando rota padrao')
+            return self.obtemRotaPadrao()
 
     def verificaSaida(self, enderecoIP, enderecoCIDR, qtdBitsFixos):
 
@@ -145,7 +155,7 @@ class IP:
     def enviar(self, segmento, dest_addr):
 
         #print('funcao: enviar')
-        
+
         """
         Envia segmento para dest_addr, onde dest_addr é um endereço IPv4
         (string no formato x.y.z.w).
@@ -163,12 +173,11 @@ class IP:
 
         total_len=len(segmento)+20
 
+        #montando um diagrama para obter o checksum
         datagrama = struct.pack('!BBHHHBBH', vihl, dscpecn, total_len, identification, flagsfrag, ttl, proto, 0) + str2addr(self.meu_endereco) + str2addr(dest_addr)
 
         checksum=calc_checksum(datagrama)
 
         datagrama = struct.pack('!BBHHHBBH', vihl, dscpecn, total_len ,identification, flagsfrag, ttl, proto, checksum) + str2addr(self.meu_endereco) + str2addr(dest_addr) + segmento
-
-        #datagrama = struct.pack('!BBHHHBBHIIs', vihl, dscpecn, len(segmento), identification, flagsfrag, ttl, proto, checksum, str2addr(self.meu_endereco), str2addr(dest_addr), segmento)
 
         self.enlace.enviar(datagrama, next_hop)
