@@ -24,9 +24,23 @@ class IP:
                 self.callback(src_addr, dst_addr, payload)
         else:
             # atua como roteador
-            next_hop = self._next_hop(dst_addr)
+
             # TODO: Trate corretamente o campo TTL do datagrama
-            self.enlace.enviar(datagrama, next_hop)
+            #self.enlace.enviar(datagrama, next_hop)
+
+
+            if self.meu_endereco!= None:
+
+                #se for um router, o ttl eh diminuido
+                ttl=ttl-1
+
+                #se o ttl zerar, entao nao deve ser passado pra frente o pacote
+                if ttl>0:
+                    self.enviar( payload, str(dst_addr), ttl,src_addr)
+
+            else:
+                next_hop = self._next_hop(dst_addr)
+                self.enlace.enviar(datagrama, next_hop)
 
     def _next_hop(self, dest_addr):
         # TODO: Use a tabela de encaminhamento para determinar o próximo salto
@@ -152,7 +166,7 @@ class IP:
         """
         self.callback = callback
 
-    def enviar(self, segmento, dest_addr):
+    def enviar(self, segmento, dest_addr, router_ttl=None, src_addr=None):
 
         #print('funcao: enviar')
 
@@ -167,17 +181,25 @@ class IP:
 
         datagrama = b'E\x00\x00\x14\x00\x00\x00\x00@\x06\x00\x00\x01\x02\x03\x04'
 
-        vihl, dscpecn, total_len, identification, flagsfrag, ttl, proto,checksum, src_addr = struct.unpack('!BBHHHBBHI', datagrama)
+        vihl, dscpecn, total_len, identification, flagsfrag, ttl, proto,checksum, _ = struct.unpack('!BBHHHBBHI', datagrama)
 
         ihl = vihl & 0xf                #para o IPV4 deve sempre ser 4
 
         total_len=len(segmento)+20
 
+        if router_ttl!=None:
+
+            ttl=router_ttl
+
+        #se o source nao tiver sido enviado entao este router na verdade eh uma ponta
+        if src_addr==None:
+            src_addr=self.meu_endereco
+
         #montando um diagrama para obter o checksum
-        datagrama = struct.pack('!BBHHHBBH', vihl, dscpecn, total_len, identification, flagsfrag, ttl, proto, 0) + str2addr(self.meu_endereco) + str2addr(dest_addr)
+        datagrama = struct.pack('!BBHHHBBH', vihl, dscpecn, total_len, identification, flagsfrag, ttl, proto, 0) + str2addr(src_addr) + str2addr(dest_addr)
 
         checksum=calc_checksum(datagrama)
 
-        datagrama = struct.pack('!BBHHHBBH', vihl, dscpecn, total_len ,identification, flagsfrag, ttl, proto, checksum) + str2addr(self.meu_endereco) + str2addr(dest_addr) + segmento
+        datagrama = struct.pack('!BBHHHBBH', vihl, dscpecn, total_len ,identification, flagsfrag, ttl, proto, checksum) + str2addr(src_addr) + str2addr(dest_addr) + segmento
 
         self.enlace.enviar(datagrama, next_hop)
